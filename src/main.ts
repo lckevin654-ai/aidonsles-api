@@ -17,9 +17,34 @@ async function bootstrap() {
   app.use(helmet());
   app.use(cookieParser(config.get<string>('cookies.secret')));
 
-  // CORS — accepte toutes les origines en développement
+  // CORS — autorise les origines locales + Netlify + Vercel
+  const allowedOrigins = [
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'https://aidonsles-web.netlify.app',
+    /\.netlify\.app$/,
+    /\.vercel\.app$/,
+  ];
+
   app.enableCors({
-    origin: true,
+    origin: (origin, callback) => {
+      // Autoriser les requêtes sans origin (Postman, curl, etc.)
+      if (!origin) return callback(null, true);
+
+      // Vérifier si l'origin est autorisée
+      const isAllowed = allowedOrigins.some((allowed) => {
+        if (typeof allowed === 'string') return allowed === origin;
+        if (allowed instanceof RegExp) return allowed.test(origin);
+        return false;
+      });
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS] Origin non autorisée : ${origin}`);
+        callback(new Error('Non autorisé par CORS'), false);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
